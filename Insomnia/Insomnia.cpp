@@ -16,22 +16,78 @@
  */
 
 #include "Insomnia.h"
-#include "resource.h"
+#include "FileIO.h"
 
+#include "resource.h"
 #include <CommCtrl.h>
 
+#include <psapi.h>
+#pragma comment(lib,"Psapi.lib")
+
 HANDLE hMouseThread = NULL;
+HWND hDialog = NULL;
+HWND hStatus = NULL;
 HINSTANCE g_hInstance = NULL;
+
+bool whitelistLoaded = false;
+std::list<std::string> whitelist;
+
 const wchar_t regName[] = L"KrossX's Insomnia";
 const wchar_t regSub[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 wchar_t exePath[512] = {0};
+
+bool CheckWhitelist()
+{
+	if(!whitelistLoaded) return true;
+	
+	DWORD process[2048] = {0}, outBytes = 0;
+
+	if(!EnumProcesses(process, sizeof(process), &outBytes))
+	{
+		SetWindowText(hStatus, L"Insomnia is NOT running... (whitelist failed)");
+		return false;
+	}
+	
+	DWORD numProcs = outBytes / sizeof(DWORD);
+
+	for(DWORD i = 0; i < numProcs; i++)
+	{
+		if(process[i])
+		{
+			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process[i]);
+
+			if(hProcess) 
+			{
+				char name[80] = {0};
+				GetModuleBaseNameA(hProcess, NULL, name, 80);
+
+				for each (std::string sProcess in whitelist)
+				{
+					if(_stricmp(name, sProcess.c_str()) == 0)
+					{
+						CloseHandle(hProcess);
+						SetWindowText(hStatus, L"Insomnia is running... (whitelist)");
+						return true;
+					}
+				}
+
+				CloseHandle(hProcess);
+			}
+		}
+	}
+
+	SetWindowText(hStatus, L"Insomnia is NOT running... (whitelist)");
+	return false;
+}
 
 void MouseThread()
 {
 	while(true)
 	{
-		mouse_event( MOUSEEVENTF_MOVE, 0, 0, 0, NULL);
-		Sleep(1000);
+		if(CheckWhitelist())
+			mouse_event( MOUSEEVENTF_MOVE, 0, 0, 0, NULL);
+
+		Sleep(30000);
 	}
 }
 
@@ -39,14 +95,17 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 {
 	switch(uMsg)
 	{
-	case WM_INITDIALOG: 
-		{			
+	case WM_INITDIALOG:
+		{
 			HICON hIcon;
 			
-			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 32, 32, 0);    
+			hDialog = hwndDlg;
+			hStatus = GetDlgItem(hwndDlg, IDC_STATUS);
+
+			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 32, 32, 0);
 			SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
 
-			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 16, 16, 0);    
+			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 16, 16, 0);
 			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
 			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"Display On");
@@ -55,18 +114,18 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, 2, 0);
 			CheckDlgButton(hwndDlg, IDC_SCREENSAVER, BST_CHECKED);
-	
+
 			SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
 			hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
 
-			HKEY reg_run = NULL;	
+			HKEY reg_run = NULL;
 			LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regSub, NULL, KEY_READ, &reg_run);
 
 			if(result == ERROR_SUCCESS && RegQueryValueEx(reg_run, regName, NULL, NULL, NULL, NULL) != ERROR_FILE_NOT_FOUND)
 				CheckDlgButton(hwndDlg, IDC_STARTUP, BST_CHECKED);
 
 			ShowWindow(hwndDlg, SW_MINIMIZE);
-		} break;    
+		} break;
 
 	case WM_COMMAND:
 		{
@@ -75,14 +134,14 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			switch(command)
 			{
 			case IDC_MODE: if(HIWORD(wParam) == CBN_SELCHANGE)
-				{				
+				{
 					short selection = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
 					switch(selection)
 					{
 					case 0: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED); break;
 					case 1: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED); break;
 					case 2: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED); break;
-					}				
+					}
 				}
 				break;
 
@@ -98,18 +157,18 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 						if(hMouseThread == NULL)
 							hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
 					}
-				} 
+				}
 				break;
 
 			case IDC_STARTUP:
 				{
-					HKEY reg_run = NULL;	
+					HKEY reg_run = NULL;
 					LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regSub, NULL, KEY_WRITE, &reg_run);
-					
+
 					if(result == ERROR_SUCCESS)
 					{
 						if(IsDlgButtonChecked(hwndDlg, IDC_STARTUP) == BST_CHECKED)
-							RegSetValueEx(reg_run, regName, NULL, REG_SZ, (BYTE*)exePath, 512);					   
+							RegSetValueEx(reg_run, regName, NULL, REG_SZ, (BYTE*)exePath, 512);
 						else
 							RegDeleteValue(reg_run, regName);
 					}
@@ -119,7 +178,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 						EnableWindow(GetDlgItem(hwndDlg, IDC_STARTUP), false);
 					}
 
-				} 
+				}
 				break;
 
 			case IDCANCEL:
@@ -143,17 +202,18 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	g_hInstance = hInstance;
-	
+	whitelistLoaded = FileIO::LoadWhitelist(whitelist);
+
 	GetModuleFileName(NULL, exePath, 512);
 	DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_INSOMNIA), NULL, DialogProc, NULL);
-	
+
 	MSG message;
 
 	while(GetMessage(&message, NULL, NULL, NULL))
 	{
 		TranslateMessage(&message);
 		DispatchMessage(&message);
-	} 
-	
+	}
+
 	return 0;
 }

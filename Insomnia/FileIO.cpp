@@ -15,9 +15,45 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma once
-#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#include "Insomnia.h"
+#include "FileIO.h"
+#include <fstream>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <list>
+//#include <stdlib.h>
+
+#define LINE_LENGTH 80
+const char wlFilename[] = "Insomnia.whitelist";
+
+namespace FileIO
+{
+	bool LoadWhitelist(std::list<std::string> &whitelist)
+	{
+		bool whitelistLoaded = false;
+		
+		std::fstream file;
+		file.open(wlFilename, std::ios::in);
+		
+		if(file.is_open())
+		{
+			char line[LINE_LENGTH+1] = {0};
+
+			while(!file.eof())
+			{
+				file.getline(line, LINE_LENGTH);
+
+				if(strlen(line) > 3)
+				{
+					std::string sLine(line);
+					whitelist.push_back(line);
+				}
+			}
+
+			file.close();
+			
+			if(!whitelist.empty()) 
+				whitelistLoaded = true;
+		}
+
+		return whitelistLoaded;
+	}
+} // End namespace FileIO

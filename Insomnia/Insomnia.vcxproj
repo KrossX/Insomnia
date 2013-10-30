@@ -84,10 +84,12 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="FileIO.h" />
     <ClInclude Include="Insomnia.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FileIO.cpp" />
     <ClCompile Include="Insomnia.cpp" />
   </ItemGroup>
   <ItemGroup>
