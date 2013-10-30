@@ -225,7 +225,7 @@ namespace FileIO
 	void OpenSettings()
 	{
 		char command[512];
-		sprintf_s(command, "start /wait notepad.exe %s", iniFilename);
+		sprintf_s(command, "start notepad.exe %s", iniFilename);
 		system(command); // Meh
 	}
 

@@ -260,7 +260,6 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			case ID_SETTINGS:
 				FileIO::SaveSettings(whitelist);
 				FileIO::OpenSettings();
-				iniFilePresent = FileIO::LoadSettings(whitelist);
 				break;
 
 			case IDCANCEL:
