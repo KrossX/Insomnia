@@ -57,6 +57,9 @@
     <PreBuildEvent>
       <Command>"$(SolutionDir)..\Common\svnrev" *.*</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy "$(ProjectDir)Readme.txt" "$(TargetDir)" /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -76,6 +79,9 @@
     <PreBuildEvent>
       <Command>"$(SolutionDir)..\Common\svnrev" *.*</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy "$(ProjectDir)Readme.txt" "$(TargetDir)" /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Insomnia.h" />
@@ -89,6 +95,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Insomnia.ico" />
+    <None Include="Readme.txt">
+      <DeploymentContent>false</DeploymentContent>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

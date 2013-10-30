@@ -18,7 +18,10 @@
 #include "Insomnia.h"
 #include "resource.h"
 
+#include <CommCtrl.h>
+
 HANDLE hMouseThread = NULL;
+HINSTANCE g_hInstance = NULL;
 
 void MouseThread()
 {
@@ -28,6 +31,8 @@ void MouseThread()
 		Sleep(1000);
 	}
 }
+
+
 
 INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -42,9 +47,17 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 16, 16, 0);    
 			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
-			
+
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"Display On");
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"System On");
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"Display & System On");
+
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, 2, 0);
+			CheckDlgButton(hwndDlg, IDC_SCREENSAVER, BST_CHECKED);
+	
 			SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
 			hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
+
 			ShowWindow(hwndDlg, SW_SHOW);
 		} break;    
 
@@ -54,10 +67,38 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			switch(command)
 			{
+			case IDC_MODE: if(HIWORD(wParam) == CBN_SELCHANGE)
+				{				
+					short selection = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
+					switch(selection)
+					{
+					case 0: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED); break;
+					case 1: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED); break;
+					case 2: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED); break;
+					}				
+				}
+				break;
+
+			case IDC_SCREENSAVER:
+				{
+				   if(IsDlgButtonChecked(hwndDlg, IDC_SCREENSAVER) == BST_CHECKED)
+				   {
+					   if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
+					   hMouseThread = NULL;
+				   }
+				   else
+				   {
+					   if(hMouseThread == NULL)
+						   hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
+				   }
+				} 
+				break;
+
 			case IDCANCEL:
 			case IDSTOP:
 				SetThreadExecutionState(ES_CONTINUOUS);
 				if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
+				hMouseThread = NULL;
 				EndDialog(hwndDlg, command);
 				PostQuitMessage(0);
 				break;
@@ -73,6 +114,8 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+	g_hInstance = hInstance;
+	
 	DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_INSOMNIA), NULL, DialogProc, NULL);
 	
 	MSG message;
