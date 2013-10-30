@@ -199,7 +199,13 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			hCheckThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)CheckThread, 0, 0, NULL);
 
-			SetWindowPos(hwndDlg, NULL, set.posx, set.posy, NULL, NULL, SWP_NOSIZE | SWP_NOZORDER);
+			POINT position;
+			position.x = set.posx;
+			position.y = set.posy;
+
+			ScreenToClient(hwndDlg, &position);
+
+			SetWindowPos(hwndDlg, NULL, position.x, position.y, NULL, NULL, SWP_NOSIZE | SWP_NOZORDER);
 			ShowWindow(hwndDlg, set.minimized ? SW_MINIMIZE : 0);
 		} 
 		break;
