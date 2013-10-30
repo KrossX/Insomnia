@@ -47,6 +47,49 @@ enum
 	INSOMNIA_NOTRUNNING
 };
 
+bool AnotherInstance()
+{
+	DWORD process[2048] = {0}, outBytes = 0;
+
+	if(!EnumProcesses(process, sizeof(process), &outBytes)) 
+		return false;
+
+	DWORD numProcs = outBytes / sizeof(DWORD);
+
+	DWORD procID = GetCurrentProcessId();
+
+	for(DWORD i = 0; i < numProcs; i++)
+	{
+		if(process[i])
+		{
+			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process[i]);
+
+			if(hProcess)
+			{
+				if(GetProcessId(hProcess) != procID)
+				{
+					char name[MAX_PATH] = {0};
+					GetProcessImageFileNameA(hProcess, name, MAX_PATH);
+				
+					std::string filename(name);
+					filename = filename.substr(filename.find_last_of("\\/")+1);
+
+					if(_stricmp(filename.c_str(), "Insomnia.exe") == 0)
+					{
+						CloseHandle(hProcess);
+						return true;
+					}
+				}
+
+				CloseHandle(hProcess);
+			}
+		}
+	}
+
+	
+	return false;
+}
+
 bool CheckWhitelist()
 {
 	if(FileIO::isINIModified()) 
@@ -237,8 +280,17 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 {
 	g_hInstance = hInstance;
 
+	if(AnotherInstance())
+	{
+		MessageBoxA(NULL, "Another instance is already running.", "Insomnia", MB_OK);
+		return 0;
+	}
+
 	FileIO::GetFilename();
 	iniFilePresent = FileIO::LoadSettings(whitelist);
+
+	if(set.priority)
+		SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
 
 	GetModuleFileName(NULL, exePath, 512);
 	DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_INSOMNIA), NULL, DialogProc, NULL);

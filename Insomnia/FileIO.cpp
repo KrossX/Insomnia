@@ -182,6 +182,7 @@ namespace FileIO
 			set.loopLength = ReadEntry("General", "LoopLength", iniFile);
 			set.wlEnabled = ReadEntry("General", "Whitelist", iniFile) == 1;
 			set.minimized = ReadEntry("General", "Minimized", iniFile) == 1;
+			set.priority = ReadEntry("General", "AboveNormalPriority", iniFile) == 1;
 
 			set.Mode.System = ReadEntry("General", "Mode_System", iniFile) == 1;
 			set.Mode.Display = ReadEntry("General", "Mode_Display", iniFile) == 1;
@@ -209,6 +210,7 @@ namespace FileIO
 			SaveEntry("General", "LoopLength", set.loopLength, iniFile, secbuff);
 			SaveEntry("General", "Whitelist", set.wlEnabled ? 1 : 0, iniFile, secbuff);
 			SaveEntry("General", "Minimized", set.minimized ? 1 : 0, iniFile, secbuff);
+			SaveEntry("General", "AboveNormalPriority", set.priority ? 1 : 0, iniFile, secbuff);
 
 			SaveEntry("General", "Mode_System", set.Mode.System ? 1 : 0, iniFile, secbuff);
 			SaveEntry("General", "Mode_Display", set.Mode.Display ? 1 : 0, iniFile, secbuff);

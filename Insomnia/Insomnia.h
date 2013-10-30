@@ -44,6 +44,7 @@ struct Settings
 
 	bool minimized;
 	bool wlEnabled;
+	bool priority;
 
 	Settings() :
 		posx(200),
