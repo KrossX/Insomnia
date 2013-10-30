@@ -94,12 +94,15 @@ bool CheckWhitelist()
 
 			if(hProcess) 
 			{
-				char name[80] = {0};
-				GetModuleBaseNameA(hProcess, NULL, name, 80);
+				char name[MAX_PATH] = {0};
+				GetProcessImageFileNameA(hProcess, name, MAX_PATH);
+				
+				std::string filename(name);
+				filename = filename.substr(filename.find_last_of("\\/")+1);
 
 				for each (std::string sProcess in whitelist)
 				{
-					if(_stricmp(name, sProcess.c_str()) == 0)
+					if(_stricmp(filename.c_str(), sProcess.c_str()) == 0)
 					{
 						CloseHandle(hProcess);
 						SetWindowText(hStatus, statusStr[INSOMNIA_RUNNING]);
