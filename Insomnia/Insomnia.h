@@ -21,3 +21,35 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <list>
+
+struct sMode
+{
+	bool System;
+	bool Display;
+	bool Mouse;
+
+	sMode() :
+		System(false),
+		Display(false),
+		Mouse(true)
+	{};
+};
+
+struct Settings
+{
+	int posx, posy;
+	int loopLength;
+
+	sMode Mode;
+
+	bool minimized;
+	bool wlEnabled;
+
+	Settings() :
+		posx(200),
+		posy(200),
+		loopLength(50000),
+		wlEnabled(false),
+		minimized(true)
+	{};
+};

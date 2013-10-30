@@ -19,7 +19,11 @@
 
 namespace FileIO
 {
-	bool LoadWhitelist(std::list<std::string> &whitelist);
-	bool CreateWhitelist();
-	bool isWhitelistModified();
+	void GetFilename();
+
+	void SaveSettings(std::list<std::string> &whitelist);
+	bool LoadSettings(std::list<std::string> &whitelist);
+	void OpenSettings();
+
+	bool isINIModified();
 }
