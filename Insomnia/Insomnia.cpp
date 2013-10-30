@@ -46,22 +46,19 @@ enum
 
 enum
 {
-	MODE_NONE,
 	MODE_SYSTEM,
 	MODE_DISPLAY,
-	MODE_BOTH,
+	MODE_MOUSE,
 	MODE_COUNT
 };
 
 const wchar_t statusStr[][32] = {L"Insomnia is running...", L"Insomnia is NOT running..."};
-const wchar_t modeStr[][32] = {L"None", L"System On", L"Display On", L"Display & System On"};
+const wchar_t modeStr[][32] = {L"System Required", L"Display Required", L"Bogus Mouse Event"};
 
-EXECUTION_STATE modeState[] = {	ES_CONTINUOUS,
-								ES_SYSTEM_REQUIRED, 
-								ES_DISPLAY_REQUIRED, 
-								ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED};
+EXECUTION_STATE modeState[] = {	ES_SYSTEM_REQUIRED, 
+								ES_DISPLAY_REQUIRED, 0 /* mouse */};
 
-int modeCurr = MODE_BOTH;
+int modeCurr = MODE_MOUSE;
 
 bool CheckWhitelist()
 {
@@ -125,10 +122,10 @@ void CheckThread()
 	{
 		if(CheckWhitelist())
 		{
-			SetThreadExecutionState(modeState[modeCurr]);
-
-			if(modeCurr & ES_DISPLAY_REQUIRED)
+			if(modeCurr == MODE_MOUSE)
 				mouse_event( MOUSEEVENTF_MOVE, 0, 0, 0, NULL);
+			else 
+				SetThreadExecutionState(modeState[modeCurr]);
 		}
 
 		Sleep(59000);
@@ -155,7 +152,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			for(int i = 0; i < MODE_COUNT; i++)
 				SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)modeStr[i]);
 
-			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, MODE_BOTH, 0);
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, MODE_MOUSE, 0);
 			CheckDlgButton(hwndDlg, IDC_SCREENSAVER, BST_CHECKED);
 
 			HKEY reg_run = NULL;
@@ -183,10 +180,7 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			switch(command)
 			{
 			case IDC_MODE: if(HIWORD(wParam) == CBN_SELCHANGE)
-				{
-					short mode = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
-					modeCurr = modeState[mode];
-				}
+				modeCurr = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
 				break;
 
 			case IDC_STARTUP:

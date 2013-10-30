@@ -8,17 +8,31 @@ Description / Usage
 
 A stand alone version of Pokopom's "Prevent Screensaver" option.
 
-Simply start it and change the settings if necessary. Press the button or the
-X to close the program.
+By default, just starting the application will be enough.
 
-Mode: Display, forces the display to be on and System, forces the system to be
-on. This alone however, won't prevent a screensaver.
 
-No screensaver option, starts/stops a thread that sends a bogus mouse event
-every... 50 seconds? or so to reset the screesaver counter. This might also
-prevent other programs from setting "idle" status.
+Settings
+--------
 
-The settings should be active as soon as selected/changed.
+Mode - System / Display Required: In theory, should avoid sleep of the system
+and display respectively. See link 1 for more info.
+
+Mode - Bogus Mouse Even: Sends a null mouse event on each loop (59 seconds) to
+reset the idle counters. Effectively avoiding the screensaver from showing up.
+
+Run on Startup: Creates a user registry entry to run Insomnia from its current
+location on each start.
+
+Whitelist: The checkbox enables/disables the usage of the whitelist, and can
+also create and load a new one if there was none loaded.
+
+When the button is enabled, the whitelist file (Insomnia.whitelist)
+has been loaded. 
+
+
+Links
+-----
+1.- http://msdn.microsoft.com/en-us/library/windows/desktop/aa373208%28v=vs.85%29.aspx
 
 -------------------------------------------------------------------------------
 License / Disclaimer
