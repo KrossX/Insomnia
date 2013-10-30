@@ -22,6 +22,9 @@
 
 HANDLE hMouseThread = NULL;
 HINSTANCE g_hInstance = NULL;
+const wchar_t regName[] = L"KrossX's Insomnia";
+const wchar_t regSub[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+wchar_t exePath[512] = {0};
 
 void MouseThread()
 {
@@ -31,8 +34,6 @@ void MouseThread()
 		Sleep(1000);
 	}
 }
-
-
 
 INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -58,7 +59,13 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
 			hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
 
-			ShowWindow(hwndDlg, SW_SHOW);
+			HKEY reg_run = NULL;	
+			LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regSub, NULL, KEY_READ, &reg_run);
+
+			if(result == ERROR_SUCCESS && RegQueryValueEx(reg_run, regName, NULL, NULL, NULL, NULL) != ERROR_FILE_NOT_FOUND)
+				CheckDlgButton(hwndDlg, IDC_STARTUP, BST_CHECKED);
+
+			ShowWindow(hwndDlg, SW_MINIMIZE);
 		} break;    
 
 	case WM_COMMAND:
@@ -81,16 +88,37 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			case IDC_SCREENSAVER:
 				{
-				   if(IsDlgButtonChecked(hwndDlg, IDC_SCREENSAVER) == BST_CHECKED)
-				   {
-					   if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
-					   hMouseThread = NULL;
-				   }
-				   else
-				   {
-					   if(hMouseThread == NULL)
-						   hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
-				   }
+					if(IsDlgButtonChecked(hwndDlg, IDC_SCREENSAVER) == BST_CHECKED)
+					{
+						if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
+						hMouseThread = NULL;
+					}
+					else
+					{
+						if(hMouseThread == NULL)
+							hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
+					}
+				} 
+				break;
+
+			case IDC_STARTUP:
+				{
+					HKEY reg_run = NULL;	
+					LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regSub, NULL, KEY_WRITE, &reg_run);
+					
+					if(result == ERROR_SUCCESS)
+					{
+						if(IsDlgButtonChecked(hwndDlg, IDC_STARTUP) == BST_CHECKED)
+							RegSetValueEx(reg_run, regName, NULL, REG_SZ, (BYTE*)exePath, 512);					   
+						else
+							RegDeleteValue(reg_run, regName);
+					}
+					else
+					{
+						CheckDlgButton(hwndDlg, IDC_STARTUP, BST_UNCHECKED);
+						EnableWindow(GetDlgItem(hwndDlg, IDC_STARTUP), false);
+					}
+
 				} 
 				break;
 
@@ -116,6 +144,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 {
 	g_hInstance = hInstance;
 	
+	GetModuleFileName(NULL, exePath, 512);
 	DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_INSOMNIA), NULL, DialogProc, NULL);
 	
 	MSG message;
