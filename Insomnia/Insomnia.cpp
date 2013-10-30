@@ -35,6 +35,14 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 	{
 	case WM_INITDIALOG: 
 		{			
+			HICON hIcon;
+			
+			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 32, 32, 0);    
+			SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+
+			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 16, 16, 0);    
+			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+			
 			SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
 			hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
 			ShowWindow(hwndDlg, SW_SHOW);
