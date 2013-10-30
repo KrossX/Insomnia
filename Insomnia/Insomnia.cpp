@@ -24,11 +24,13 @@
 #include <psapi.h>
 #pragma comment(lib,"Psapi.lib")
 
-HANDLE hMouseThread = NULL;
-HWND hDialog = NULL;
-HWND hStatus = NULL;
 HINSTANCE g_hInstance = NULL;
 
+HANDLE hCheckThread = NULL;
+HWND hDialog = NULL;
+HWND hStatus = NULL;
+
+bool whitelistEnabled = false;
 bool whitelistLoaded = false;
 std::list<std::string> whitelist;
 
@@ -36,15 +38,49 @@ const wchar_t regName[] = L"KrossX's Insomnia";
 const wchar_t regSub[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 wchar_t exePath[512] = {0};
 
+enum
+{
+	INSOMNIA_RUNNING,
+	INSOMNIA_NOTRUNNING
+};
+
+enum
+{
+	MODE_NONE,
+	MODE_SYSTEM,
+	MODE_DISPLAY,
+	MODE_BOTH,
+	MODE_COUNT
+};
+
+const wchar_t statusStr[][32] = {L"Insomnia is running...", L"Insomnia is NOT running..."};
+const wchar_t modeStr[][32] = {L"None", L"System On", L"Display On", L"Display & System On"};
+
+EXECUTION_STATE modeState[] = {	ES_CONTINUOUS,
+								ES_SYSTEM_REQUIRED, 
+								ES_DISPLAY_REQUIRED, 
+								ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED};
+
+int modeCurr = MODE_BOTH;
+
 bool CheckWhitelist()
 {
-	if(!whitelistLoaded) return true;
+	if(!whitelistEnabled)
+	{
+		SetWindowText(hStatus, statusStr[INSOMNIA_RUNNING]);
+		return true;
+	}
+	else if(FileIO::isWhitelistModified())
+	{
+		whitelist.clear();
+		FileIO::LoadWhitelist(whitelist);
+	}
 	
 	DWORD process[2048] = {0}, outBytes = 0;
 
 	if(!EnumProcesses(process, sizeof(process), &outBytes))
 	{
-		SetWindowText(hStatus, L"Insomnia is NOT running... (whitelist failed)");
+		SetWindowText(hStatus, statusStr[INSOMNIA_NOTRUNNING]);
 		return false;
 	}
 	
@@ -66,7 +102,7 @@ bool CheckWhitelist()
 					if(_stricmp(name, sProcess.c_str()) == 0)
 					{
 						CloseHandle(hProcess);
-						SetWindowText(hStatus, L"Insomnia is running... (whitelist)");
+						SetWindowText(hStatus, statusStr[INSOMNIA_RUNNING]);
 						return true;
 					}
 				}
@@ -76,18 +112,23 @@ bool CheckWhitelist()
 		}
 	}
 
-	SetWindowText(hStatus, L"Insomnia is NOT running... (whitelist)");
+	SetWindowText(hStatus, statusStr[INSOMNIA_NOTRUNNING]);
 	return false;
 }
 
-void MouseThread()
+void CheckThread()
 {
 	while(true)
 	{
 		if(CheckWhitelist())
-			mouse_event( MOUSEEVENTF_MOVE, 0, 0, 0, NULL);
+		{
+			SetThreadExecutionState(modeState[modeCurr]);
 
-		Sleep(30000);
+			if(modeCurr & ES_DISPLAY_REQUIRED)
+				mouse_event( MOUSEEVENTF_MOVE, 0, 0, 0, NULL);
+		}
+
+		Sleep(59000);
 	}
 }
 
@@ -108,15 +149,11 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON), IMAGE_ICON, 16, 16, 0);
 			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
-			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"Display On");
-			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"System On");
-			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)L"Display & System On");
+			for(int i = 0; i < MODE_COUNT; i++)
+				SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_ADDSTRING, 0, (LPARAM)modeStr[i]);
 
-			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, 2, 0);
+			SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_SETCURSEL, MODE_BOTH, 0);
 			CheckDlgButton(hwndDlg, IDC_SCREENSAVER, BST_CHECKED);
-
-			SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
-			hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
 
 			HKEY reg_run = NULL;
 			LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regSub, NULL, KEY_READ, &reg_run);
@@ -124,6 +161,15 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			if(result == ERROR_SUCCESS && RegQueryValueEx(reg_run, regName, NULL, NULL, NULL, NULL) != ERROR_FILE_NOT_FOUND)
 				CheckDlgButton(hwndDlg, IDC_STARTUP, BST_CHECKED);
 
+			whitelistEnabled = whitelistLoaded;
+			EnableWindow(GetDlgItem(hwndDlg, ID_WHITELIST), whitelistLoaded);
+
+			if(whitelistLoaded)
+				CheckDlgButton(hwndDlg, IDC_WHITELIST, BST_CHECKED);
+
+			hCheckThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)CheckThread, 0, 0, NULL);
+
+			SetWindowPos(hwndDlg, NULL, 200, 200, NULL, NULL, SWP_NOSIZE | SWP_NOZORDER);
 			ShowWindow(hwndDlg, SW_MINIMIZE);
 		} break;
 
@@ -135,28 +181,8 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 			{
 			case IDC_MODE: if(HIWORD(wParam) == CBN_SELCHANGE)
 				{
-					short selection = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
-					switch(selection)
-					{
-					case 0: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED); break;
-					case 1: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED); break;
-					case 2: SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED); break;
-					}
-				}
-				break;
-
-			case IDC_SCREENSAVER:
-				{
-					if(IsDlgButtonChecked(hwndDlg, IDC_SCREENSAVER) == BST_CHECKED)
-					{
-						if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
-						hMouseThread = NULL;
-					}
-					else
-					{
-						if(hMouseThread == NULL)
-							hMouseThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MouseThread, 0, 0, NULL);
-					}
+					short mode = (short)SendMessage(GetDlgItem(hwndDlg, IDC_MODE), CB_GETCURSEL, 0, 0);
+					modeCurr = modeState[mode];
 				}
 				break;
 
@@ -177,17 +203,43 @@ INT_PTR CALLBACK DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 						CheckDlgButton(hwndDlg, IDC_STARTUP, BST_UNCHECKED);
 						EnableWindow(GetDlgItem(hwndDlg, IDC_STARTUP), false);
 					}
-
 				}
+				break;
+
+			case IDC_WHITELIST:
+				{
+					bool bWhite = IsDlgButtonChecked(hwndDlg, IDC_WHITELIST) == BST_CHECKED;
+
+					if(bWhite)
+					{
+						if(!whitelistLoaded)
+						{
+							if(FileIO::CreateWhitelist())
+								whitelistLoaded = FileIO::LoadWhitelist(whitelist);
+						}
+
+						whitelistEnabled = whitelistLoaded;
+					}
+					else
+						whitelistEnabled = false;
+
+					CheckDlgButton(hwndDlg, IDC_WHITELIST, whitelistEnabled? BST_CHECKED : BST_UNCHECKED);
+					EnableWindow(GetDlgItem(hwndDlg, ID_WHITELIST), whitelistLoaded);
+				}
+				break;
+
+			case ID_WHITELIST:
+				system( "start notepad.exe Insomnia.whitelist" ); // Meh
 				break;
 
 			case IDCANCEL:
 			case IDSTOP:
-				SetThreadExecutionState(ES_CONTINUOUS);
-				if(hMouseThread != NULL) TerminateThread(hMouseThread,0);
-				hMouseThread = NULL;
-				EndDialog(hwndDlg, command);
 				PostQuitMessage(0);
+				break;
+			
+			case WM_QUIT:
+				if(hCheckThread) TerminateThread(hCheckThread, 0);
+				EndDialog(hwndDlg, command);
 				break;
 			}
 
@@ -206,7 +258,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	GetModuleFileName(NULL, exePath, 512);
 	DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_INSOMNIA), NULL, DialogProc, NULL);
-
+	
 	MSG message;
 
 	while(GetMessage(&message, NULL, NULL, NULL))

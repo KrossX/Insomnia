@@ -23,13 +23,56 @@
 
 #define LINE_LENGTH 80
 const char wlFilename[] = "Insomnia.whitelist";
+const char wlDefault[] = "Insomnia.exe\n";
+
+FILETIME wlModtime;
 
 namespace FileIO
 {
+	bool isWhitelistModified()
+	{
+		bool isModified = false;
+
+		WIN32_FIND_DATAA finder;
+		HANDLE hFile = FindFirstFileA(wlFilename, &finder);
+
+		if(hFile != INVALID_HANDLE_VALUE)
+		{
+			FILETIME current = finder.ftLastWriteTime;
+
+			if((current.dwHighDateTime != wlModtime.dwHighDateTime) ||
+				(current.dwLowDateTime != wlModtime.dwLowDateTime))
+			{
+				isModified = true;
+				wlModtime.dwHighDateTime = current.dwHighDateTime;
+				wlModtime.dwLowDateTime = current.dwLowDateTime;
+			}
+		}
+
+		return isModified;
+	}
+
+	bool CreateWhitelist()
+	{
+		bool created = false;
+		
+		std::fstream file;
+		file.open(wlFilename, std::ios::out);
+		
+		if(file.is_open())
+		{
+			file.write(wlDefault, sizeof(wlDefault));
+			file.close();
+			created = true;
+		}
+
+		return created;
+	}
+
 	bool LoadWhitelist(std::list<std::string> &whitelist)
 	{
 		bool whitelistLoaded = false;
-		
+
 		std::fstream file;
 		file.open(wlFilename, std::ios::in);
 		
@@ -51,7 +94,10 @@ namespace FileIO
 			file.close();
 			
 			if(!whitelist.empty()) 
+			{
 				whitelistLoaded = true;
+				isWhitelistModified();
+			}
 		}
 
 		return whitelistLoaded;

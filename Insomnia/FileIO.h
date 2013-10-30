@@ -20,4 +20,6 @@
 namespace FileIO
 {
 	bool LoadWhitelist(std::list<std::string> &whitelist);
+	bool CreateWhitelist();
+	bool isWhitelistModified();
 }
