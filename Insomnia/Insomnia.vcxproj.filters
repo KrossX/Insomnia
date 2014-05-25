@@ -42,8 +42,5 @@
     <None Include="Insomnia.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="Readme.txt">
-      <Filter>Resource Files</Filter>
-    </None>
   </ItemGroup>
 </Project>
