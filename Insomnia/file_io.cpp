@@ -15,8 +15,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Insomnia.h"
-#include "FileIO.h"
+#include "insomnia.h"
+#include "file_io.h"
 #include <fstream>
 
 //#include <stdlib.h>
