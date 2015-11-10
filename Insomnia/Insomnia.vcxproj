@@ -87,14 +87,14 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="FileIO.h" />
-    <ClInclude Include="Insomnia.h" />
+    <ClInclude Include="file_io2.h" />
+    <ClInclude Include="insomnia2.h" />
     <ClInclude Include="insomnia_gui.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FileIO.cpp" />
-    <ClCompile Include="Insomnia.cpp" />
+    <ClCompile Include="file_io2.cpp" />
+    <ClCompile Include="insomnia2.cpp" />
     <ClCompile Include="insomnia_gui.cpp" />
   </ItemGroup>
   <ItemGroup>
