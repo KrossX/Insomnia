@@ -1,112 +1,81 @@
-/*  Insomnia
- *  Copyright (C) 2012  KrossX
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+/* Copyright (c) 2012 KrossX <krossx@live.com>
+* License: http://www.opensource.org/licenses/mit-license.html  MIT License
+*/
 
 #include "insomnia.h"
+#include "settings.h"
 #include "file_io.h"
-#include <fstream>
 
-//#include <stdlib.h>
+#include <iostream>
+#include <fstream>
 
 #define LINE_LENGTH 80
 
-char iniFilename[MAX_PATH];
-const char wlDefault[] = "Insomnia.exe\n";
+bool filename_acquired = false;
+char ini_filename[MAX_PATH];
 
-extern Settings set;
+extern settings set;
 FILETIME wlModtime;
 
-namespace FileIO
+namespace fileio
 {
-	bool isINIModified()
+	std::fstream ini_file;
+
+
+	void get_filename()
 	{
-		bool isModified = false;
+		int length = GetModuleFileNameA(NULL, ini_filename, MAX_PATH);
 
-		WIN32_FIND_DATAA finder;
-		HANDLE hFile = FindFirstFileA(iniFilename, &finder);
-
-		if(hFile != INVALID_HANDLE_VALUE)
+		if (length > 4)
 		{
-			FILETIME current = finder.ftLastWriteTime;
-
-			if((current.dwHighDateTime != wlModtime.dwHighDateTime) ||
-				(current.dwLowDateTime != wlModtime.dwLowDateTime))
-			{
-				isModified = true;
-				wlModtime.dwHighDateTime = current.dwHighDateTime;
-				wlModtime.dwLowDateTime = current.dwLowDateTime;
-			}
+			char extension[] = "ini";
+			memcpy(&ini_filename[length - 3], extension, 3);
 		}
-
-		return isModified;
 	}
 
-	bool SaveEntry(const char *sec, const char *key, int value, FILE *iniFile, char *secbuff)
+
+	bool save_entry(std::string section, std::string key, int value)
 	{
-		char newsec[LINE_LENGTH+1], line[LINE_LENGTH+1];
+		static std::string prev_section;
+		
+		std::string line = key + "=" + std::to_string(value) + "\n";
+		section = "[" + section + "]";
 
-		memset(newsec, 0, sizeof(newsec));
-		memset(line, 0, sizeof(line));
-
-		sprintf(newsec, "[%s]", sec);
-
-		if(strcmp(newsec, secbuff) != 0)
+		if(section != prev_section)
 		{
-			memcpy(secbuff, newsec, LINE_LENGTH);
-			sprintf(line, "%s\n", newsec);
-			fputs(line, iniFile);
+			prev_section = section;
+			section.append("\n");
+			ini_file << section;
 		}
 
-		sprintf(line, "%s=%d\n", key, value);
-		fputs(line, iniFile);
-
+		ini_file << line;
 		return true;
 	}
 
-	int ReadEntry(const char *sec, const char *key, FILE *iniFile)
+	int read_entry(std::string section, std::string key)
 	{
-		char section[LINE_LENGTH+1], line[LINE_LENGTH+1];
+		std::string line;
 
-		memset(section, 0, sizeof(section));
-		memset(line, 0, sizeof(line));
+		section = "[" + section + "]";
 
-		int value = -1, length;
+		int value = -1;
 		bool sectionFound = false;
 
-		fseek(iniFile, 0, SEEK_SET);
-
-		sprintf(section, "[%s]", sec);
-
-		while(fgets(line, LINE_LENGTH, iniFile) != NULL)
+		ini_file.seekg(0);
+		while(std::getline(ini_file, line))
 		{
-			if(memcmp(line, section, strlen(section)) == 0)
+			if(line == section)
 			{
 				sectionFound = true;
 			}
 			else if(sectionFound)
 			{
-				length = strlen(key);
+				size_t length = key.length();
 
-				if(memcmp(line, key, length) == 0)
+				if(line.compare(0, length, key) == 0 && (line[length] == '='))
 				{
-					if(line[length] == '=')
-					{
-						value = atoi(&line[strlen(key)+1]);
-						return value;
-					}
+					value = std::stoi(&line[length + 1]);
+					return value;
 				}
 			}
 		}
@@ -114,132 +83,93 @@ namespace FileIO
 		return value;
 	}
 
-	void LoadWhitelist(std::list<std::string> &whitelist, FILE *iniFile)
+	void load_whitelist(std::list<std::string> &whitelist)
 	{
 		whitelist.clear();
 
+		std::string line;
+		std::string section("[Whitelist]");
 		bool sectionFound = false;
 
-		char section[] = "[Whitelist]";
-
-		char line[LINE_LENGTH+1];
-		memset(line, 0, sizeof(line));
-
-		fseek(iniFile, 0, SEEK_SET);
-
-		while(fgets(line, LINE_LENGTH, iniFile) != NULL)
+		ini_file.seekg(0);
+		while (std::getline(ini_file, line))
 		{
-
-			if(memcmp(line, section, strlen(section)) == 0)
+			if (line == section)
 			{
 				sectionFound = true;
 			}
-			else if(sectionFound)
+			else if(sectionFound && line.length() > 3)
 			{
-				if(strlen(line) > 3)
-				{
-					std::string sLine(line);
-					sLine = sLine.substr(0, sLine.find_last_of('e') +1);
-					whitelist.push_back(sLine);
-				}
+				std::string entry = line.substr(0, line.find_last_of('e') +1);
+				whitelist.push_back(entry);
 			}
 		}
 	}
 
-	void SaveWhitelist(std::list<std::string> &whitelist, FILE *iniFile, char *secbuff)
+	void save_whitelist(std::list<std::string> &whitelist)
 	{
-		char newsec[LINE_LENGTH+1] = "[Whitelist]";
-		char line[LINE_LENGTH+1];
+		std::string line;
 
-		memset(line, 0, sizeof(line));
+		ini_file << "[Whitelist]\n";
 
-		if(strcmp(newsec, secbuff) != 0)
+		if (whitelist.empty())
 		{
-			memcpy(secbuff, newsec, LINE_LENGTH);
-			sprintf(line, "%s\n", newsec);
-			fputs(line, iniFile);
+			ini_file << "Insomnia.exe";
 		}
-
-		if(whitelist.empty())
-			fputs("Insomnia.exe\n", iniFile);
-		else
-		for each (std::string sProcess in whitelist)
+		else for each (std::string entry in whitelist)
 		{
-			sprintf(line, "%s\n", sProcess.c_str());
-			fputs(line, iniFile);
+			ini_file << entry + "\n";
 		}
 	}
 
-	bool LoadSettings(std::list<std::string> &whitelist)
+	void load_settings(std::list<std::string> &whitelist)
 	{
-		bool loaded = false;
-		FILE* iniFile = fopen(iniFilename, "r");
+		ini_file = std::fstream(ini_filename, std::ios::in);
+
+		if(ini_file.is_open())
+		{
+			set.posx        = read_entry("General", "WindowPosX");
+			set.posy        = read_entry("General", "WindowPosY");
+			set.loop_length = read_entry("General", "LoopLength");
+			set.whitelist   = read_entry("General", "Whitelist") == 1;
+			set.minimized   = read_entry("General", "Minimized") == 1;
+			set.priority    = read_entry("General", "AboveNormalPriority") == 1;
+
+			set.mode_system  = read_entry("General", "Mode_System") == 1;
+			set.mode_display = read_entry("General", "Mode_Display") == 1;
+			set.mode_mouse   = read_entry("General", "Mode_Mouse") == 1;
+
+			set.loop_length = max(set.loop_length, 1);
+			load_whitelist(whitelist);
+
+			ini_file.close();
+		}
+
+	}
+
+	void save_settings(std::list<std::string> &whitelist)
+	{
+		ini_file = std::fstream(ini_filename, std::ios::out);
+
+		if(ini_file.is_open())
+		{
+			std::string current_section;
+
+			save_entry("General", "WindowPosX", set.posx);
+			save_entry("General", "WindowPosY", set.posy);
+			save_entry("General", "LoopLength", set.loop_length);
+			save_entry("General", "Whitelist", set.whitelist ? 1 : 0);
+			save_entry("General", "Minimized", set.minimized ? 1 : 0);
+			save_entry("General", "AboveNormalPriority", set.priority ? 1 : 0);
+
+			save_entry("General", "Mode_System", set.mode_system ? 1 : 0);
+			save_entry("General", "Mode_Display", set.mode_display ? 1 : 0);
+			save_entry("General", "Mode_Mouse", set.mode_mouse ? 1 : 0);
+
+			save_whitelist(whitelist);
+
+			ini_file.close();
+		}
+	}
 		
-		if(iniFile)
-		{
-			set.posx = ReadEntry("General", "WindowPosX", iniFile);
-			set.posy = ReadEntry("General", "WindowPosY", iniFile);
-			set.loopLength = ReadEntry("General", "LoopLength", iniFile);
-			set.wlEnabled = ReadEntry("General", "Whitelist", iniFile) == 1;
-			set.minimized = ReadEntry("General", "Minimized", iniFile) == 1;
-			set.priority = ReadEntry("General", "AboveNormalPriority", iniFile) == 1;
-
-			set.Mode.System = ReadEntry("General", "Mode_System", iniFile) == 1;
-			set.Mode.Display = ReadEntry("General", "Mode_Display", iniFile) == 1;
-			set.Mode.Mouse = ReadEntry("General", "Mode_Mouse", iniFile) == 1;
-
-			LoadWhitelist(whitelist, iniFile);
-
-			loaded = true;
-			fclose(iniFile);
-		}
-
-		return loaded;
-	}
-
-	void SaveSettings(std::list<std::string> &whitelist)
-	{
-		FILE* iniFile = fopen(iniFilename, "w");
-
-		if(iniFile)
-		{
-			char secbuff[LINE_LENGTH+1];
-
-			SaveEntry("General", "WindowPosX", set.posx, iniFile, secbuff);
-			SaveEntry("General", "WindowPosY", set.posy, iniFile, secbuff);
-			SaveEntry("General", "LoopLength", set.loopLength, iniFile, secbuff);
-			SaveEntry("General", "Whitelist", set.wlEnabled ? 1 : 0, iniFile, secbuff);
-			SaveEntry("General", "Minimized", set.minimized ? 1 : 0, iniFile, secbuff);
-			SaveEntry("General", "AboveNormalPriority", set.priority ? 1 : 0, iniFile, secbuff);
-
-			SaveEntry("General", "Mode_System", set.Mode.System ? 1 : 0, iniFile, secbuff);
-			SaveEntry("General", "Mode_Display", set.Mode.Display ? 1 : 0, iniFile, secbuff);
-			SaveEntry("General", "Mode_Mouse", set.Mode.Mouse ? 1 : 0, iniFile, secbuff);
-
-			SaveWhitelist(whitelist, iniFile, secbuff);
-
-			fclose(iniFile);
-		}
-	}
-
-	void OpenSettings()
-	{
-		char command[512];
-		sprintf_s(command, "start notepad.exe %s", iniFilename);
-		system(command); // Meh
-	}
-
-	void GetFilename()
-	{
-		memset(iniFilename, 0, sizeof(iniFilename));
-		int nLength = GetModuleFileNameA(NULL, iniFilename, MAX_PATH);
-
-		if(nLength > 4)
-		{
-			char extension[] = "ini";
-			memcpy(&iniFilename[nLength-3], extension, sizeof(extension));
-		}
-	}
-
-	
 } // End namespace FileIO

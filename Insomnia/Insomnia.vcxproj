@@ -61,6 +61,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>fltk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent>
@@ -80,6 +81,7 @@
       <GenerateDebugInformation>No</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>fltk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent>
@@ -87,14 +89,15 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="file_io2.h" />
-    <ClInclude Include="insomnia2.h" />
+    <ClInclude Include="file_io.h" />
+    <ClInclude Include="insomnia.h" />
     <ClInclude Include="insomnia_gui.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="settings.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="file_io2.cpp" />
-    <ClCompile Include="insomnia2.cpp" />
+    <ClCompile Include="file_io.cpp" />
+    <ClCompile Include="insomnia.cpp" />
     <ClCompile Include="insomnia_gui.cpp" />
   </ItemGroup>
   <ItemGroup>
