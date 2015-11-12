@@ -187,7 +187,7 @@ void text_editor::cb_save(Fl_Widget *widget, void *v)
 // REGISTRY STUFF
 namespace registry
 {
-	const wchar_t reg_name[] = L"KrossX's Insomnia";
+	const wchar_t reg_name[] = L"Insomnia";
 	const wchar_t reg_sub[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
 	int startup_load()
